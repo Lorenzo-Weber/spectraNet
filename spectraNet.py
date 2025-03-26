@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,24 +7,43 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader, Dataset  
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, FunctionTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.base import BaseEstimator, TransformerMixin
+
+def snv(input_data):
+    mean = np.mean(input_data, axis=1, keepdims=True) 
+    std = np.std(input_data, axis=1, keepdims=True)  
+    return (input_data - mean) / std
+
+class SNVTransformer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self 
+    
+    def transform(self, X):
+        return snv(X)
 
 data = pd.read_csv('data/Barley.data.csv')
 
 X = data.iloc[:, 1:]
 y = data.iloc[:, :1]
 
+X_arr = X.to_numpy()
+# X.columns = X.columns.astype(str)
+
 encoder = OneHotEncoder()
+y_encoded = encoder.fit_transform(y).toarray()
 
-y_encoded = encoder.fit_transform(y) # FIX
 
+# x_train, x_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2)
 
-x_train, x_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2)
-
-data_pipe = Pipeline([
-    # SNV, STS, Noise, 1HOT, Data Aug.?
+data_pipeline = Pipeline([
+    ('snv', SNVTransformer()),
+    ('scaler', StandardScaler())
 ])
+
+x_ready = data_pipeline.fit_transform(X_arr)
+print(x_ready)
 
 class SpectraNet(nn.Module):
     def __init__(self, input_size = None):
@@ -35,9 +55,9 @@ class SpectraNet(nn.Module):
         self.m2 = nn.MaxPool1d(kernel_size=2, stride=2)
         self.f1 = nn.Flatten()
         self.d1 = nn.Dropout(0.5)
-        self.l1 = nn.Linear(100,100) # Need to understand how many neurons were involved
-        self.l2 = nn.Linear(100,100) # Not sure too
-        self.out = nn.Linear(100,28) # Fix the output
+        self.l1 = nn.Linear(2336, 512)
+        self.l2 = nn.Linear(512, 256)
+        self.out = nn.Linear(256, 24) 
 
     def forward(self, x):
         x = F.elu(self.c1(x))
@@ -51,14 +71,17 @@ class SpectraNet(nn.Module):
 
         x = self.out(x)
 
-instances = X.iloc[:20]
 
-plt.figure(figsize=(10, 10))
-for i, instance in instances.iterrows():
-    plt.plot(instance.index, instance.values, label=f"Waveform {i}")
 
-plt.title("Waveforms of Multiple Instances")
-plt.xlabel("Wavelength Index")
-plt.ylabel("Intensity")
-plt.legend()
-plt.show()
+
+# instances = X.iloc[:20]
+
+# plt.figure(figsize=(10, 10))
+# for i, instance in instances.iterrows():
+#     plt.plot(instance.index, instance.values, label=f"Waveform {i}")
+
+# plt.title("Waveforms of Multiple Instances")
+# plt.xlabel("Wavelength Index")
+# plt.ylabel("Intensity")
+# plt.legend()
+# plt.show()
