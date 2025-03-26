@@ -38,7 +38,7 @@ class SNVTransformer(BaseEstimator, TransformerMixin):
         x_new =  snv(X)
         return x_new
 
-data = pd.read_csv('data/Barley.data.csv')
+data = pd.read_csv('data/Barley_augmented.csv')
 
 X = data.iloc[:, 1:]
 y = data.iloc[:, :1]
@@ -59,8 +59,9 @@ x_train, x_test, y_train, y_test = train_test_split(x_ready, y_encoded, test_siz
 
 x_train_tensor = torch.tensor(x_train, dtype=torch.float32)
 x_test_tensor = torch.tensor(x_test, dtype=torch.float32)
-y_train_tensor = torch.tensor(y_train, dtype=torch.float32)
-y_test_tensor = torch.tensor(y_test, dtype=torch.float32)
+
+y_train_tensor = torch.tensor(np.argmax(y_train, axis=1), dtype=torch.long)
+y_test_tensor = torch.tensor(np.argmax(y_test, axis=1), dtype=torch.long)
 
 train_dataset = TensorDataset(x_train_tensor, y_train_tensor)
 test_dataset = TensorDataset(x_test_tensor, y_test_tensor)
@@ -73,14 +74,21 @@ class SpectraNet(nn.Module):
         super(SpectraNet, self).__init__()
 
         self.c1 = nn.Conv1d(in_channels=1, out_channels=16, kernel_size=8)
+        self.b1 = nn.BatchNorm1d(16)
         self.m1 = nn.MaxPool1d(kernel_size=2, stride=2)
         self.c2 = nn.Conv1d(in_channels=16, out_channels=32, kernel_size=16)
+        self.b2 = nn.BatchNorm1d(num_features=32)
         self.m2 = nn.MaxPool1d(kernel_size=2, stride=2)
         self.f1 = nn.Flatten()
-        self.d1 = nn.Dropout(0.5)
-        self.l1 = nn.Linear(2336, 512)
-        self.l2 = nn.Linear(512, 256)
-        self.out = nn.Linear(256, 24) 
+        self.d1 = nn.Dropout(0.4)
+        self.l1 = nn.Linear(2336, 2336)
+        self.b3 = nn.BatchNorm1d(2336)
+        self.l2 = nn.Linear(2336, 512)
+        self.b4 = nn.BatchNorm1d(512)
+        self.l3 = nn.Linear(512, 256)
+        self.d2 = nn.Dropout(0.4)
+        self.b5 = nn.BatchNorm1d(256)
+        self.out = nn.Linear(256, 8) 
 
         self._init_weights()
 
@@ -92,19 +100,18 @@ class SpectraNet(nn.Module):
                     init.zeros_(m.bias)
 
     def forward(self, x):
-
         x = x.unsqueeze(1)
-        x = F.elu(self.c1(x))
+        x = F.elu(self.b1(self.c1(x)))
         x = self.m1(x)
-        x = F.elu(self.c2(x))
+        x = F.elu(self.b2(self.c2(x)))
         x = self.m2(x)
         x = self.f1(x)
         x = self.d1(x)
-        x = F.elu(self.l1(x))
-        x = F.elu(self.l2(x))
-
+        x = F.elu(self.b3(self.l1(x)))
+        x = F.elu(self.b4(self.l2(x)))
+        x = self.d2(x)
+        x = F.elu(self.b5(self.l3(x)))
         return self.out(x)
-
 
 def evaluate(model, test_loader, criterion):
     model.eval() 
@@ -122,7 +129,7 @@ def evaluate(model, test_loader, criterion):
             total_loss += loss.item()
 
             predicted = torch.argmax(outputs, dim=1)  
-            true_labels = torch.argmax(labels, dim=1)  
+            true_labels = labels  
 
             correct += (predicted == true_labels).sum().item()
             total += labels.size(0)
@@ -138,12 +145,11 @@ def evaluate(model, test_loader, criterion):
 
     return avg_loss, accuracy, recall
 
-
 model = SpectraNet()
 criterion = nn.CrossEntropyLoss()
-opt = optim.Adam(model.parameters(), lr=0.0004, weight_decay=1e-5)
+opt = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-3)
 
-epochs = 45
+epochs = 20
 
 for epoch in range(epochs):
     model.train()
@@ -151,12 +157,10 @@ for epoch in range(epochs):
 
     for inputs, labels in train_loader:
         opt.zero_grad()
-
         outputs = model(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         opt.step()
-
         run_loss += loss
     
     print(f"Epoch [{epoch+1}/{epochs}], Loss: {run_loss / len(train_loader):.4f}")

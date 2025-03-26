@@ -8,7 +8,9 @@ My approach was basically the same as in the paper, with the following differenc
 - Number of neurons in the dense layers
 - Weights initialization
 - Learning rate
-- I did not apply data augmentation
+- I am not sure how their data augmentation process worked so i applied a simple gaussian noise
+  into the data, repeated the process 10 times per predictor, increasing the dataset size 
+  from 1200 instances all the way to 4.400. 
 
 ## Results
 
