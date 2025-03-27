@@ -11,7 +11,7 @@ predictors = {group: df for group, df in groups}
 # Técnicas de Data Augmentation
 def add_gaussian_noise(data):
     """Adiciona ruído gaussiano com variação aleatória no nível"""
-    noise_level = np.random.uniform(0.005, 0.02)  # Aleatório entre 0.5% e 2%
+    noise_level = np.random.uniform(0.005, 0.01)  # Aleatório entre 0.5% e 2%
     noise = np.random.normal(0, noise_level, data.shape)
     return np.clip(data + noise, a_min=0, a_max=np.max(data))
 
@@ -45,9 +45,6 @@ for predictor, group in predictors.items():
     for _ in range(2):  # Criar 2 variações de cada técnica para cada amostra
         augmented_data.append(pd.DataFrame(add_gaussian_noise(group_data), columns=numeric_cols).assign(Predictor=predictor))
         augmented_data.append(pd.DataFrame(add_uniform_noise(group_data), columns=numeric_cols).assign(Predictor=predictor))
-        augmented_data.append(pd.DataFrame(mixup(group_data), columns=numeric_cols).assign(Predictor=predictor))
-        augmented_data.append(pd.DataFrame(log_transform(group_data), columns=numeric_cols).assign(Predictor=predictor))
-        augmented_data.append(pd.DataFrame(bootstrap_resample(group_data), columns=numeric_cols).assign(Predictor=predictor))
 
 augmented_data = pd.concat(augmented_data, ignore_index=True)
 final_data = pd.concat([data, augmented_data], ignore_index=True)

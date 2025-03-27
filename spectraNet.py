@@ -49,8 +49,7 @@ y_encoded = encoder.fit_transform(y).toarray()
 
 data_pipeline = Pipeline([
     ('snv', SNVTransformer()),
-    ('scaler', StandardScaler()),
-    ('noise', GauNoiseTransformer())
+    ('scaler', StandardScaler())
 ])
 
 x_ready = data_pipeline.fit_transform(X_arr)
@@ -81,14 +80,12 @@ class SpectraNet(nn.Module):
         self.m2 = nn.MaxPool1d(kernel_size=2, stride=2)
         self.f1 = nn.Flatten()
         self.d1 = nn.Dropout(0.4)
-        self.l1 = nn.Linear(2336, 2336)
-        self.b3 = nn.BatchNorm1d(2336)
-        self.l2 = nn.Linear(2336, 512)
-        self.b4 = nn.BatchNorm1d(512)
-        self.l3 = nn.Linear(512, 256)
+        self.l1 = nn.Linear(2336, 512)
+        self.b3 = nn.BatchNorm1d(512)
+        self.l2 = nn.Linear(512, 256)
+        self.b4 = nn.BatchNorm1d(256)
         self.d2 = nn.Dropout(0.4)
-        self.b5 = nn.BatchNorm1d(256)
-        self.out = nn.Linear(256, 8) 
+        self.out = nn.Linear(256, 3) 
 
         self._init_weights()
 
@@ -110,7 +107,6 @@ class SpectraNet(nn.Module):
         x = F.elu(self.b3(self.l1(x)))
         x = F.elu(self.b4(self.l2(x)))
         x = self.d2(x)
-        x = F.elu(self.b5(self.l3(x)))
         return self.out(x)
 
 def evaluate(model, test_loader, criterion):
@@ -147,9 +143,9 @@ def evaluate(model, test_loader, criterion):
 
 model = SpectraNet()
 criterion = nn.CrossEntropyLoss()
-opt = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-3)
+opt = optim.Adam(model.parameters(), lr=0.00004, weight_decay=1e-5)
 
-epochs = 20
+epochs = 50
 
 for epoch in range(epochs):
     model.train()

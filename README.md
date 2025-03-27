@@ -9,8 +9,8 @@ My approach was basically the same as in the paper, with the following differenc
 - Weights initialization
 - Learning rate
 - I am not sure how their data augmentation process worked so i applied a simple gaussian noise
-  into the data, repeated the process 10 times per predictor, increasing the dataset size 
-  from 1200 instances all the way to 4.400. 
+  and a uniform noise into the data, repeated the process twice per predictor, increasing the dataset size 
+  from only 50 instances all the way to 500. 
 
 ## Results
 
